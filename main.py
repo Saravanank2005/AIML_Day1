@@ -1,221 +1,219 @@
 """
-AI Decision Helper
-Classifies business requirements into No AI, Analytics/BI, Classical ML,
-Deep Learning, or Generative AI using transparent requirement attributes.
+AI Decision Helper: classifies requirements into No AI (rules/code), Analytics/BI,
+Classical ML, Deep Learning, or Generative AI.
 
-AI category guide:
+Category basis:
 - AI: Broad field of systems performing tasks associated with human intelligence.
-- ML: A subset of AI that learns patterns from data to make predictions/decisions.
-- Deep Learning: A subset of ML using multi-layer neural networks; useful for
-  complex data such as images, audio, and video.
-- Generative AI: Models that generate new text, images, code, or other content.
-  Retrieval-Augmented Generation (RAG) can ground answers in trusted documents.
+- ML (Classical ML): Learns patterns from structured data to predict or group outcomes.
+- Deep Learning: Multi-layer neural networks for complex inputs like images, audio, or video.
+- Generative AI: Models that create text, summaries, or grounded answers (e.g. RAG).
 """
 
-from pathlib import Path
 import csv
+from pathlib import Path
 
 OUTPUT_CSV = Path(__file__).with_name("decision_report.csv")
+AI_CATEGORIES = {"Classical ML", "Deep Learning", "Generative AI"}
+REQUIRED_BOOLS = (
+    "fixed_rules_possible",
+    "needs_learning",
+    "unstructured_input",
+    "needs_generated_content",
+    "data_available",
+    "prediction_or_pattern_discovery",
+    "aggregation_or_trends",
+)
 
-# Each attribute is a yes/no business characteristic.
 REQUIREMENTS = [
     {
         "id": 1, "name": "Validate PAN number format",
-        "description": "Check whether a PAN follows the required character pattern.",
         "fixed_rules_possible": True, "needs_learning": False,
         "unstructured_input": False, "input_type": "structured",
         "needs_generated_content": False, "data_available": True,
         "prediction_or_pattern_discovery": False, "aggregation_or_trends": False,
-        "risk": "A format check does not prove that the PAN is genuine or belongs to the user.",
-        "next_step": "Implement a regex and add valid/invalid PAN test cases."
+        "risk": "Format check alone does not prove a PAN is genuine.",
+        "next_step": "Implement a regex check with valid/invalid unit tests.",
     },
     {
         "id": 2, "name": "Predict customers likely to cancel next month",
-        "description": "Estimate customer churn risk from historical customer behaviour.",
         "fixed_rules_possible": False, "needs_learning": True,
         "unstructured_input": False, "input_type": "structured",
         "needs_generated_content": False, "data_available": True,
         "prediction_or_pattern_discovery": True, "aggregation_or_trends": False,
-        "risk": "Biased or stale data can produce misleading risk scores; predictions are not certainties.",
-        "next_step": "Define churn and assemble labelled customer history with a time-based split."
+        "risk": "Stale or biased history can skew churn scores.",
+        "next_step": "Define churn and build a labelled customer history table.",
     },
     {
         "id": 3, "name": "Summarise long support emails",
-        "description": "Produce concise summaries of free-form support email conversations.",
         "fixed_rules_possible": False, "needs_learning": False,
         "unstructured_input": True, "input_type": "text",
         "needs_generated_content": True, "data_available": True,
         "prediction_or_pattern_discovery": False, "aggregation_or_trends": False,
-        "risk": "The model may omit important details or invent facts; protect personal data.",
-        "next_step": "Collect representative emails and define a summary format with human review."
+        "risk": "May omit key details or hallucinate; redact personal data.",
+        "next_step": "Collect redacted sample emails and define summary format.",
     },
     {
         "id": 4, "name": "Detect defects in product photos",
-        "description": "Identify visible scratches, dents, cracks, or other defects in images.",
         "fixed_rules_possible": False, "needs_learning": True,
         "unstructured_input": True, "input_type": "image",
         "needs_generated_content": False, "data_available": True,
         "prediction_or_pattern_discovery": True, "aggregation_or_trends": False,
-        "risk": "Poor lighting, camera variation, and rare defects can cause false alarms or misses.",
-        "next_step": "Create an expert-labelled image dataset covering defect types and normal products."
+        "risk": "Lighting changes and rare defects can cause misses.",
+        "next_step": "Build a labelled photo dataset covering normal and defect cases.",
     },
     {
         "id": 5, "name": "Calculate GST on an invoice",
-        "description": "Calculate tax using configured rates, taxable value, and invoice rules.",
         "fixed_rules_possible": True, "needs_learning": False,
         "unstructured_input": False, "input_type": "structured",
         "needs_generated_content": False, "data_available": True,
         "prediction_or_pattern_discovery": False, "aggregation_or_trends": False,
-        "risk": "Incorrect tax rates or business rules can create compliance errors.",
-        "next_step": "Confirm applicable tax rules and implement decimal-safe calculation with unit tests."
+        "risk": "Wrong tax rates or rounding rules cause compliance errors.",
+        "next_step": "Verify tax slabs and implement decimal-safe unit tests.",
     },
     {
         "id": 6, "name": "Forecast weekly product demand",
-        "description": "Predict future weekly demand from sales history and relevant drivers.",
         "fixed_rules_possible": False, "needs_learning": True,
-        "unstructured_input": False, "input_type": "structured time series",
+        "unstructured_input": False, "input_type": "structured",
         "needs_generated_content": False, "data_available": True,
         "prediction_or_pattern_discovery": True, "aggregation_or_trends": True,
-        "risk": "Promotions, stockouts, seasonality, and sudden market changes can distort forecasts.",
-        "next_step": "Gather weekly sales and stockout data, then establish a seasonal-naive baseline."
+        "risk": "Stockouts and promotions can distort demand history.",
+        "next_step": "Prepare weekly sales data and a seasonal-naive baseline.",
     },
     {
         "id": 7, "name": "Answer employee questions from the HR policy PDF",
-        "description": "Answer natural-language questions using the organisation's HR policy document.",
         "fixed_rules_possible": False, "needs_learning": False,
-        "unstructured_input": True, "input_type": "text and PDF",
+        "unstructured_input": True, "input_type": "text",
         "needs_generated_content": True, "data_available": True,
         "prediction_or_pattern_discovery": False, "aggregation_or_trends": False,
-        "risk": "Unsupported answers or outdated policy versions could mislead employees.",
-        "next_step": "Build a permission-aware RAG proof of concept with citations to policy sections."
+        "risk": "Outdated policy PDFs or ungrounded answers mislead staff.",
+        "next_step": "Prototype RAG with strict citations to approved policy sections.",
     },
     {
         "id": 8, "name": "Sort invoices by amount",
-        "description": "Order invoice records by a numeric amount field.",
         "fixed_rules_possible": True, "needs_learning": False,
         "unstructured_input": False, "input_type": "structured",
         "needs_generated_content": False, "data_available": True,
         "prediction_or_pattern_discovery": False, "aggregation_or_trends": False,
-        "risk": "Missing values, currency mismatches, or incorrect parsing can produce a wrong order.",
-        "next_step": "Use a normal sort with an explicit currency and null-handling rule."
+        "risk": "Mixed currencies or null amounts can break ordering.",
+        "next_step": "Use standard sorting with currency and null checks.",
     },
     {
-        "id": 9, "name": "Detect potentially fraudulent transactions",
-        "description": "Flag unusual transactions using historical examples and behaviour patterns.",
+        "id": 9, "name": "Flag potentially fraudulent transactions",
         "fixed_rules_possible": False, "needs_learning": True,
         "unstructured_input": False, "input_type": "structured",
         "needs_generated_content": False, "data_available": True,
         "prediction_or_pattern_discovery": True, "aggregation_or_trends": False,
-        "risk": "Fraud labels may be delayed or imbalanced; false positives can block genuine customers.",
-        "next_step": "Work with fraud analysts to define labels, costs, and a review workflow."
+        "risk": "Class imbalance and false positives can block valid users.",
+        "next_step": "Align with fraud analysts on labels and review thresholds.",
     },
     {
-        "id": 10, "name": "Group recurring customer complaint themes",
-        "description": "Discover common themes across a large collection of free-text complaints.",
-        "fixed_rules_possible": False, "needs_learning": True,
-        "unstructured_input": True, "input_type": "text",
+        "id": 10, "name": "Track monthly regional sales trends",
+        "fixed_rules_possible": False, "needs_learning": False,
+        "unstructured_input": False, "input_type": "structured",
         "needs_generated_content": False, "data_available": True,
-        "prediction_or_pattern_discovery": True, "aggregation_or_trends": True,
-        "risk": "Themes may be hard to interpret and minority complaints may be hidden.",
-        "next_step": "Sample and anonymise complaints, then test text embeddings and clustering with reviewers."
+        "prediction_or_pattern_discovery": False, "aggregation_or_trends": True,
+        "risk": "Inconsistent region mappings can skew monthly totals.",
+        "next_step": "Build a SQL summary and BI dashboard by region and month.",
     },
 ]
 
-# Lifecycle map: one practical task and accountable role per stage.
 LIFECYCLE = {
     "Predict customers likely to cancel next month": [
-        ("Problem framing", "Agree on the churn definition, prediction horizon, and intervention.", "Product Owner"),
-        ("Data", "Build a dated customer-feature table with churn labels.", "Data Engineer"),
-        ("Model", "Train and validate a calibrated classification model.", "Data Scientist"),
-        ("Deployment", "Expose weekly churn scores to the retention workflow.", "ML Engineer"),
-        ("Monitoring", "Track drift, precision/recall, and retention outcomes.", "ML Engineer"),
+        ("Problem framing", "Define churn window and retention action.", "Product Owner"),
+        ("Data", "Build dated customer feature and churn label table.", "Data Engineer"),
+        ("Model", "Train and calibrate a classification model.", "Data Scientist"),
+        ("Deployment", "Publish weekly churn risk scores to CRM.", "ML Engineer"),
+        ("Monitoring", "Track drift, precision/recall, and retention lift.", "ML Engineer"),
     ],
     "Summarise long support emails": [
-        ("Problem framing", "Define summary length, required fields, and quality criteria.", "Product Owner"),
-        ("Data", "Collect approved, redacted email examples and evaluation references.", "Data Analyst"),
-        ("Model", "Select an LLM and test prompts against factuality criteria.", "AI Engineer"),
-        ("Deployment", "Integrate summarisation into the support tool with agent approval.", "Software Engineer"),
-        ("Monitoring", "Review omissions, hallucinations, latency, and cost.", "Support Operations Lead"),
+        ("Problem framing", "Set summary length and accuracy rules.", "Product Owner"),
+        ("Data", "Collect redacted sample emails for evaluation.", "Data Analyst"),
+        ("Model", "Select LLM and tune factuality prompts.", "AI Engineer"),
+        ("Deployment", "Embed draft summary with agent review in helpdesk.", "Software Engineer"),
+        ("Monitoring", "Audit hallucinations, omissions, latency, and cost.", "Support Lead"),
     ],
     "Detect defects in product photos": [
-        ("Problem framing", "Define defect classes and acceptable false-negative rate.", "Quality Manager"),
-        ("Data", "Capture and label representative product images.", "Data Engineer"),
-        ("Model", "Train and evaluate an image classifier or object detector.", "Data Scientist"),
-        ("Deployment", "Run image inference in the inspection pipeline.", "ML Engineer"),
-        ("Monitoring", "Sample predictions and track performance by camera and product type.", "Quality Engineer"),
+        ("Problem framing", "Define defect classes and miss tolerance.", "Quality Manager"),
+        ("Data", "Capture and label representative product photos.", "Data Engineer"),
+        ("Model", "Train and evaluate an image defect detector.", "Data Scientist"),
+        ("Deployment", "Run inference on the inspection camera feed.", "ML Engineer"),
+        ("Monitoring", "Sample predictions across lighting and product lines.", "Quality Engineer"),
     ],
     "Forecast weekly product demand": [
-        ("Problem framing", "Define forecast horizon, product granularity, and error metric.", "Demand Planner"),
-        ("Data", "Prepare weekly sales, inventory, promotion, and calendar data.", "Data Engineer"),
-        ("Model", "Compare seasonal-naive, statistical, and ML forecasting baselines.", "Data Scientist"),
-        ("Deployment", "Publish forecasts to the replenishment dashboard.", "ML Engineer"),
-        ("Monitoring", "Track forecast error, bias, and stockout impact each week.", "Demand Planner"),
+        ("Problem framing", "Set forecast horizon, SKU level, and error metric.", "Demand Planner"),
+        ("Data", "Clean weekly sales, promo, and stockout history.", "Data Engineer"),
+        ("Model", "Benchmark ML model against seasonal-naive baseline.", "Data Scientist"),
+        ("Deployment", "Feed weekly forecasts to replenishment planning.", "ML Engineer"),
+        ("Monitoring", "Review weekly forecast error and bias.", "Demand Planner"),
     ],
     "Answer employee questions from the HR policy PDF": [
-        ("Problem framing", "Set supported topics, access rules, and citation requirements.", "HR Product Owner"),
-        ("Data", "Version, extract, chunk, and permission-tag approved HR documents.", "Data Engineer"),
-        ("Model", "Build and evaluate retrieval plus grounded answer generation (RAG).", "AI Engineer"),
-        ("Deployment", "Deploy the assistant behind employee authentication.", "Software Engineer"),
-        ("Monitoring", "Audit answer citations, unanswered questions, and policy changes.", "HR Operations Lead"),
+        ("Problem framing", "Define supported HR topics and citation rules.", "HR Product Owner"),
+        ("Data", "Chunk and permission-tag versioned HR PDFs.", "Data Engineer"),
+        ("Model", "Build and test RAG retrieval with grounded answers.", "AI Engineer"),
+        ("Deployment", "Launch behind employee SSO authentication.", "Software Engineer"),
+        ("Monitoring", "Audit citations and flag policy document updates.", "HR Operations Lead"),
     ],
-    "Detect potentially fraudulent transactions": [
-        ("Problem framing", "Define fraud types, decision thresholds, and review costs.", "Fraud Product Owner"),
-        ("Data", "Join transaction history with confirmed investigation outcomes.", "Data Engineer"),
-        ("Model", "Train an imbalanced-class classifier and evaluate precision-recall.", "Data Scientist"),
-        ("Deployment", "Send risk scores to a human investigation queue.", "ML Engineer"),
-        ("Monitoring", "Track false positives, fraud loss, and changing attack patterns.", "Fraud Operations Lead"),
-    ],
-    "Group recurring customer complaint themes": [
-        ("Problem framing", "Agree how themes will guide service improvements.", "Customer Experience Lead"),
-        ("Data", "Anonymise, deduplicate, and prepare complaint text.", "Data Engineer"),
-        ("Model", "Generate text embeddings and cluster complaints for review.", "Data Scientist"),
-        ("Deployment", "Publish reviewed themes in the service analytics dashboard.", "Analytics Engineer"),
-        ("Monitoring", "Review cluster quality and emerging themes each month.", "Customer Experience Lead"),
+    "Flag potentially fraudulent transactions": [
+        ("Problem framing", "Define fraud types and false-positive cost.", "Fraud Product Owner"),
+        ("Data", "Join transactions with confirmed fraud outcomes.", "Data Engineer"),
+        ("Model", "Train imbalanced classifier using precision-recall.", "Data Scientist"),
+        ("Deployment", "Route high-risk scores to analyst review queue.", "ML Engineer"),
+        ("Monitoring", "Monitor false alarms and emerging fraud patterns.", "Fraud Ops Lead"),
     ],
 }
 
+
+def validate_requirement(req):
+    """Validate requirement structure and attribute types."""
+    if not isinstance(req, dict):
+        raise ValueError("Requirement must be a dictionary.")
+    for key in ("id", "name", "input_type", "risk", "next_step"):
+        if key not in req or req[key] in (None, ""):
+            raise ValueError(f"Missing required field: {key}")
+    for key in REQUIRED_BOOLS:
+        if key not in req or not isinstance(req[key], bool):
+            raise ValueError(f"Field '{key}' must be a boolean.")
+
+
 def classify_requirement(req):
-    """Return (category, reasons) using a simple, explainable decision order."""
+    """Return (category, reasons) for a single requirement."""
+    validate_requirement(req)
     reasons = []
 
-
-    if req["needs_generated_content"] and req["unstructured_input"]:
+    if req["needs_generated_content"]:
         category = "Generative AI"
-        reasons.append("It must generate new content from unstructured input.")
-        if req["name"] == "Answer employee questions from the HR policy PDF":
-            reasons.append("RAG can retrieve relevant policy passages and ground answers with citations.")
-
-    elif req["input_type"] == "image" and req["needs_learning"]:
+        reasons.append("Needs generated natural-language output from unstructured content.")
+        if "PDF" in req["name"]:
+            reasons.append("Use RAG to ground answers in policy citations.")
+    elif req["unstructured_input"] and req["needs_learning"] and req["input_type"] == "image":
         category = "Deep Learning"
-        reasons.append("It must learn visual patterns from product images.")
-        reasons.append("Deep neural networks are well suited to image classification or detection.")
-
+        reasons.append("Requires learning visual patterns from unstructured image data.")
     elif req["needs_learning"] and req["prediction_or_pattern_discovery"]:
         category = "Classical ML"
-        reasons.append("It must learn patterns from historical examples rather than rely only on fixed rules.")
-        reasons.append("The task is prediction or pattern discovery on structured/text-derived features.")
-
+        reasons.append("Needs pattern learning on historical structured data for prediction.")
     elif req["aggregation_or_trends"]:
         category = "Analytics/BI"
-        reasons.append("The main need is aggregation, trend analysis, or reporting.")
-        reasons.append("A dashboard and descriptive statistics may solve it without a predictive model.")
+        reasons.append("Needs aggregation and trend reporting without predictive modelling.")
     elif req["fixed_rules_possible"]:
         category = "No AI (rules/code)"
-        reasons.append("The outcome is deterministic and can be expressed as explicit rules or code.")
-        reasons.append("A conventional implementation is easier to test, explain, and maintain.")
+        reasons.append("Deterministic logic can be solved with explicit rules or code.")
     else:
         category = "Analytics/BI"
-        reasons.append("Start with descriptive analysis before introducing a learned model.")
+        reasons.append("Start with descriptive reporting before considering ML.")
 
-    if not req["data_available"] and category not in ("No AI (rules/code)", "Analytics/BI"):
-        reasons.append("Suitable data is not yet available, so a data-collection step is required.")
-    elif req["data_available"] and category in ("Classical ML", "Deep Learning", "Generative AI"):
-        reasons.append("The requirement indicates data or documents are available for a proof of concept.")
+    if category in AI_CATEGORIES and not req["data_available"]:
+        reasons.append("Data is missing; collect and label data before modelling.")
+    elif category in AI_CATEGORIES and req["data_available"]:
+        reasons.append("Required data or documents are available for a prototype.")
 
     return category, reasons
 
 
 def build_report(requirements=REQUIREMENTS, output_path=OUTPUT_CSV):
+    """Classify all requirements and write the CSV report."""
+    if not requirements:
+        raise ValueError("Requirements list cannot be empty.")
+
     rows = []
     for req in requirements:
         decision, reasons = classify_requirement(req)
@@ -238,22 +236,22 @@ def build_report(requirements=REQUIREMENTS, output_path=OUTPUT_CSV):
 
 
 def print_lifecycle():
+    """Print the 5-stage lifecycle map for AI-suitable requirements."""
     print("\nLIFECYCLE MAP (AI-suitable requirements)")
     for name, stages in LIFECYCLE.items():
         print(f"\n{name}")
         for stage, task, role in stages:
-            print(f"  {stage}: {task} [Role: {role}]")
+            print(f"  {stage}: {task} [{role}]")
 
 
 def main():
     rows = build_report()
     print("AI DECISION REPORT")
-    print("-" * 72)
+    print("-" * 60)
     for row in rows:
-        print(f'{row["id"]:>2}. {row["requirement"]}')
-        print(f'    Decision: {row["decision"]}')
-        print(f'    Reasons:  {row["reasons"]}')
-    print(f"\nCSV report written to: {OUTPUT_CSV.name}")
+        print(f'{row["id"]:>2}. {row["requirement"]} -> {row["decision"]}')
+        print(f'    Reason: {row["reasons"]}')
+    print(f"\nSaved report to {OUTPUT_CSV.name}")
     print_lifecycle()
 
 
